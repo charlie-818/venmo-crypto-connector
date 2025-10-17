@@ -1,0 +1,20 @@
+source "https://rubygems.org"
+
+ruby "2.6.10"
+
+# Core Rails
+gem "rails", "~> 6.1.0"
+gem "sqlite3", "~> 1.3.13"
+gem "puma", "~> 5.0"
+gem "jbuilder"
+gem "bootsnap", require: false
+
+# Mount the Venmo Crypto Connector engine
+gem "venmo_crypto_connector", path: "../venmo_crypto_connector"
+
+# Minimal dependencies for the engine
+gem "jwt"
+
+group :development do
+  gem "web-console"
+end

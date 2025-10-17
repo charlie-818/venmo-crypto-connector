@@ -1,0 +1,33 @@
+source "https://rubygems.org"
+
+# Declare your gem's dependencies in venmo_crypto_connector.gemspec.
+# Bundler will treat runtime dependencies like base dependencies, and
+# development dependencies will be added by default to the :development group.
+
+gemspec
+
+# Declare any dependencies that are not in the gemspec here
+gem "rails", "~> 7.0"
+gem "pg", "~> 1.1"
+gem "devise"
+gem "siwe"
+gem "web3-eth"
+gem "httparty"
+gem "sidekiq"
+gem "jwt"
+
+group :development, :test do
+  gem "rspec-rails"
+  gem "factory_bot_rails"
+  gem "faker"
+  gem "database_cleaner-active_record"
+  gem "shoulda-matchers"
+  gem "pry-rails"
+  gem "pry-byebug"
+end
+
+group :development do
+  gem "listen", "~> 3.3"
+  gem "spring"
+  gem "spring-watcher-listen", "~> 2.0.0"
+end
