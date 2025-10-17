@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        ruby-version: ['2.6', '2.7', '3.0', '3.1']
+        rails-version: ['6.1', '7.0']
+        
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: venmo_crypto_connector_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby-version }}
+        bundler-cache: true
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        cd venmo_crypto_connector
+        bundle install
+        npm install
+    
+    - name: Set up database
+      run: |
+        cd venmo_crypto_connector
+        bundle exec rails db:create
+        bundle exec rails db:migrate
+      env:
+        RAILS_ENV: test
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/venmo_crypto_connector_test
+    
+    - name: Run tests
+      run: |
+        cd venmo_crypto_connector
+        bundle exec rspec
+      env:
+        RAILS_ENV: test
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/venmo_crypto_connector_test
+    
+    - name: Run linter
+      run: |
+        cd venmo_crypto_connector
+        bundle exec rubocop
+    
+    - name: Check security vulnerabilities
+      run: |
+        cd venmo_crypto_connector
+        bundle exec bundle-audit check --update
+
+  demo:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+    
+    - name: Start demo server
+      run: |
+        ruby simple_server.rb &
+        sleep 5
+        curl -f http://localhost:3000/api/v1/demo/modules || exit 1
+        curl -f http://localhost:3000/api/v1/demo/wallet || exit 1
+      env:
+        PORT: 3000
+    
+    - name: Test demo endpoints
+      run: |
+        # Test nonce generation
+        curl -f http://localhost:3000/api/v1/demo/nonces || exit 1
+        
+        # Test signature verification
+        curl -X POST http://localhost:3000/api/v1/demo/verify \
+          -H "Content-Type: application/json" \
+          -d '{"message":"test","signature":"test","address":"0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"}' || exit 1
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, demo]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+    
+    - name: Build gem
+      run: |
+        cd venmo_crypto_connector
+        gem build venmo_crypto_connector.gemspec
+    
+    - name: Upload gem artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: venmo-crypto-connector-gem
+        path: venmo_crypto_connector/*.gem
